@@ -1,5 +1,4 @@
 # GPMA-Net
-This repo holds code for [GPMA-NetUNet:XXX](https://arxiv.org/pdf/xxxxxxx.pdf)
 
 ## Usage
 
@@ -38,8 +37,3 @@ python test.py --dataset Synapse --vit_name R50-ViT-B_16
 * [EPSANet](https://github.com/murufeng/EPSANet)
 
 ## Citations
-
-```bibtex
-@article{
-}
-```
