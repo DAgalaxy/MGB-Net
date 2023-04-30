@@ -1,4 +1,4 @@
-# GPMA-Net
+# MGB-Net
 
 ## Usage
 
