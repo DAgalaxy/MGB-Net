@@ -37,3 +37,4 @@ python test.py --dataset Synapse --vit_name R50-ViT-B_16
 * [EPSANet](https://github.com/murufeng/EPSANet)
 
 ## Citations
+Yuan, F., Tang, Z., Wang, C.,Huang, Q., Shi, J.: A multiple gated boosting network for multi-organ medical image segmentation. IET Image Process. 1–12 (2023). https://doi.org/10.1049/ipr2.12852
