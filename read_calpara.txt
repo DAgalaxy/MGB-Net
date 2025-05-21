@@ -1,0 +1,182 @@
+static int m_load_file(const char *file_name, ADSE_RUNTIME_FILE *_file)
+{
+    int32_t ret = HIK_APT_S_OK;
+    FILE* fp = fopen(file_name, "rb");
+    size_t fsize = 0;
+    _file->data = NULL;
+    _file->size = 0;
+    HIK_APT_CHECK_ERR(fp == NULL, HIK_APT_ERR_NULL_PTR);
+    do
+    {
+        fseek(fp, 0, SEEK_END);
+        fsize = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        _file->data = malloc(fsize + 1);
+        HIK_APT_CHECK_BREAK(_file->data == NULL, HIK_APT_ERR_NULL_PTR, ret);
+        ((char *)_file->data)[fsize] = 0;
+        fread(_file->data, 1, fsize, fp);
+
+        _file->size = fsize;
+        _file->phy_data = NULL;
+    } while (0);
+
+    fclose(fp);
+    return ret;
+}
+
+ADSE_RUNTIME_FILE *file_;
+ret = m_load_file('E:\tangzhaoda\相机标定参数\银色ei6环视标定结果-20250107\960x1280\calpara', &file_);
+
+ADS_INPUT_TRANSFER_BUFFERS 	input_buffers={0};
+input_buffers.in_calpara_buf = file_->data;
+input_buffers.in_calpara_size = (int32_t)file_->size;
+
+static int32_t get_calpara_all(void *out_calpara_all_avm_buf,ADS_INPUT_TRANSFER_BUFFERS input_buffers)
+{
+	int res;
+	HKAAVMC_CALIB_PARA_CAL *p_calib_para_in;
+	HKAAVMC_CALIB_PARA_TMP *p_calib_para_out;
+	p_calib_para_in = (HKAAVMC_CALIB_PARA_CAL *)input_buffers.in_calpara_buf;
+	p_calib_para_out = (HKAAVMC_CALIB_PARA_TMP *)out_calpara_all_avm_buf;
+
+	memcpy(out_calpara_all_avm_buf, p_calib_para_in, sizeof(HKAAVMC_CALIB_PARA));
+
+	for (size_t i = 0; i < 4; i++)
+	{
+		
+		p_calib_para_out->cam_intr[i].cam_fx = p_calib_para_in->cam_intr[i].fx;
+		p_calib_para_out->cam_intr[i].cam_fy = p_calib_para_in->cam_intr[i].fy;
+		p_calib_para_out->cam_intr[i].cam_cx = p_calib_para_in->cam_intr[i].cx;
+		p_calib_para_out->cam_intr[i].cam_cy = p_calib_para_in->cam_intr[i].cy;
+		p_calib_para_out->cam_intr[i].cam_p[0] = p_calib_para_in->cam_intr[i].distort_params[0];
+		p_calib_para_out->cam_intr[i].cam_p[1] = p_calib_para_in->cam_intr[i].distort_params[1];
+		p_calib_para_out->cam_intr[i].cam_p[2] = p_calib_para_in->cam_intr[i].distort_params[2];
+		p_calib_para_out->cam_intr[i].cam_p[3] = p_calib_para_in->cam_intr[i].distort_params[3];
+		p_calib_para_out->cam_extr[i].w = p_calib_para_in->cam_extr[i].w;
+		p_calib_para_out->cam_extr[i].h = p_calib_para_in->cam_extr[i].h;
+		p_calib_para_out->cam_extr[i].z = p_calib_para_in->cam_extr[i].z;
+		p_calib_para_out->cam_extr[i].pitch = p_calib_para_in->cam_extr[i].pitch;
+		p_calib_para_out->cam_extr[i].roll = p_calib_para_in->cam_extr[i].roll;
+		p_calib_para_out->cam_extr[i].yaw = p_calib_para_in->cam_extr[i].yaw;
+
+		memcpy(p_calib_para_out->ground2undist_mat[i], p_calib_para_in->ground2undist_mat[i], 9 * sizeof(float));
+	}
+	memcpy(p_calib_para_out->car2world, p_calib_para_in->car2world, 9 * sizeof(float));
+
+	float x_para, y_para, z_para; //= 460;
+    int   in_buf_size = input_buffers.in_calpara_file_Set_size;
+
+    res = LoadParameterBuffer(input_buffers.in_calpara_file_Set_buf, in_buf_size,"CAR2ISO", "x_para", x_para);
+	AVP_CALIB_CHECK_ERR(res!=HIK_APT_S_OK,res);
+    res = LoadParameterBuffer(input_buffers.in_calpara_file_Set_buf, in_buf_size, "CAR2ISO", "y_para", y_para);
+	AVP_CALIB_CHECK_ERR(res!=HIK_APT_S_OK,res);
+    res = LoadParameterBuffer(input_buffers.in_calpara_file_Set_buf, in_buf_size, "CAR2ISO", "z_para", z_para);
+	AVP_CALIB_CHECK_ERR(res!=HIK_APT_S_OK,res);
+
+	p_calib_para_out->coord_avm_to_car.x = x_para / 1000.f;
+    p_calib_para_out->coord_avm_to_car.y = y_para / 1000.f;
+    p_calib_para_out->coord_avm_to_car.z = z_para / 1000.f;
+
+	int car_w, car_l;
+    res =LoadParameterBuffer(input_buffers.in_calpara_file_Set_buf, in_buf_size,"CARSIZE", "W", car_w);
+	AVP_CALIB_CHECK_ERR(res!=HIK_APT_S_OK,res);
+    res =LoadParameterBuffer(input_buffers.in_calpara_file_Set_buf, in_buf_size,"CARSIZE", "L", car_l);
+	AVP_CALIB_CHECK_ERR(res!=HIK_APT_S_OK,res);
+    p_calib_para_out->car_width = car_w / 1000.f;
+    p_calib_para_out->car_length = car_l / 1000.f;
+	return HIK_ADS_S_OK;
+}
+
+
+//初始化文件结构体设计的初衷是为了解决某些没有文件系统平台的初始化需求
+typedef struct _ADSE_RUNTIME_FILE
+{
+	char   name[ADSE_RUNTIME_NAME_MAX_LEN];          //对应配置文件中，文件的Name，这只是个key，与真实的文件名与路径无关
+	size_t size;              //文件大小
+	void  *data;              //文件的虚地址
+	void  *phy_data;          //文件的物理地址（如果需要）
+} ADSE_RUNTIME_FILE;
+
+typedef struct _ADS_INPUT_TRANSFER_BUFFERS_
+{
+    void    *in_calpara_buf;
+    void    *in_calpara_file_Set_buf;
+    void    *in_corner_radar_outer_set_buf;
+    void    *in_mask_valid;
+    int32_t in_calpara_size;
+    int32_t in_calpara_file_Set_size;
+    int32_t in_corner_radar_outer_set_size;
+    int32_t in_mask_valid_size;
+}  ADS_INPUT_TRANSFER_BUFFERS;
+
+typedef struct _HKAAVMC_CALIB_PARA_CAL
+{
+	float                  calb_error[4];                          // 标定过程中的重投影误差
+	float                  car2world[9];                                         // 车身坐标系到世界坐标系之间的变换矩阵
+	float                  ground2undist_mat[4][9];                // 地面物理坐标到畸变校正图之间的矩阵
+	float                  ground_to_topview_mat[4][9];            // 地面像素点坐标到俯视畸变校正图变换矩阵
+	float                  topview_to_undist_mat[4][9];            // 旋转后的畸变校正图到旋转前畸变校正图的
+	HKAAVMC_CAM_EXTRINSIC  cam_extr[4];                            // 相机外参
+
+	HKAAVMC3_CAME_INTRINSIC  cam_intr[4];                      // 相机内参
+	unsigned char            calb_flag[4];                           // 镜头是否标定标记
+	float                    reserve[24];                                           // 保留字节
+
+}HKAAVMC_CALIB_PARA_CAL;
+
+// 鱼眼镜头外参结构体
+typedef struct _HKAAVMC_CAM_EXTRINSIC
+{
+	float   h;                                           // 相机安装位置距离车中心的坐标（车长方向）, 车尾为正轴方向
+	float   w;                                           // 相机安装位置距离车中心的坐标（车宽方向），车左侧为正轴方向
+	float   z;                                           // 相机安装位置距离地面的高度
+	float   pitch;                                       // 俯仰角，欧拉角向量x轴旋转角度，相机俯仰偏转
+	float   yaw;                                         // 偏航角，欧拉角向量y轴旋转角度，具体体现相机左右偏转
+	float   roll;                                        // 翻滚角，欧拉角向量z轴旋转角度，表现为相机自身旋转    
+} HKAAVMC_CAM_EXTRINSIC;
+
+// 鱼眼镜头内参结构体
+typedef struct _HKAAVMC3_CAME_INTRINSIC3
+{
+	float   cx;                                                    // 光心纵坐标
+	float   cy;                                                    // 光心横坐标
+	float   fx;                                                    // 焦距(x轴像素点)
+	float   fy;                                                    // 焦距(y轴像素点)
+	float   distort_params[4];                                     // 畸变参数
+} HKAAVMC3_CAME_INTRINSIC;
+
+typedef struct _HKAAVMC_CALIB_PARA_TMP
+{
+	float                  calb_error[4];                          // 标定过程中的重投影误差
+	float                  car2world[9];                                         // 车身坐标系到世界坐标系之间的变换矩阵
+	float                  ground2undist_mat[4][9];                // 地面物理坐标到畸变校正图之间的矩阵
+	float                  ground_to_topview_mat[4][9];            // 地面像素点坐标到俯视畸变校正图变换矩阵
+	float                  topview_to_undist_mat[4][9];            // 旋转后的畸变校正图到旋转前畸变校正图的
+	HKAAVMC_CAM_EXTRINSIC  cam_extr[4];                            // 相机外参
+	HKAAVMC_CAM_INTRINSIC  cam_intr[4];							   // 相机内参
+	VCA_3D_POINT_F         coord_avm_to_car;                        // 相机avm坐标系相对car坐标系的偏移量
+	float                  car_width;                               // 车辆宽度
+	float                  car_length;                              // 车辆宽度
+}HKAAVMC_CALIB_PARA_TMP;
+
+typedef struct _HKAAVMC_CAM_INTRINSIC
+{
+	float	cam_p[4];
+	float	cam_cx;
+	float	cam_cy;
+	float	cam_fx;
+	float	cam_fy;
+}HKAAVMC_CAM_INTRINSIC;
+
+
+typedef struct _HKAAVMC_CALIB_PARA
+{
+	float                  calb_error[4];                          // 标定过程中的重投影误差
+	float                  car2world[9];                                         // 车身坐标系到世界坐标系之间的变换矩阵
+	float                  ground2undist_mat[4][9];                // 地面物理坐标到畸变校正图之间的矩阵
+	float                  ground_to_topview_mat[4][9];            // 地面像素点坐标到俯视畸变校正图变换矩阵
+	float                  topview_to_undist_mat[4][9];            // 旋转后的畸变校正图到旋转前畸变校正图的
+	HKAAVMC_CAM_EXTRINSIC  cam_extr[4];                            // 相机外参
+
+}HKAAVMC_CALIB_PARA;
+
